@@ -4,6 +4,8 @@ import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from app.utils.currency_tracker import CurrencyTracker, plot_currency_dynamics
 from app.utils.expense_manager import BudgetManager
+from datetime import datetime
+from app.utils.habit_tracker import HabitTracker
 
 
 class MainWindow(ctk.CTk):
@@ -49,6 +51,14 @@ class MainWindow(ctk.CTk):
         )
         self.btn_crypto.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
+        self.btn_habits = ctk.CTkButton(
+            self.sidebar_frame,
+            text="✅ Привычки",
+            command=self.show_habit_view,
+            height=40
+        )
+        self.btn_habits.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+
         # --- ОБЛАСТЬ КОНТЕНТА ---
         self.content_frame = ctk.CTkFrame(
             self,
@@ -92,7 +102,10 @@ class MainWindow(ctk.CTk):
 
                     info_label = ctk.CTkLabel(
                         container,
-                        text=f"Текущий курс {curr_name}: {current_rate:.2f} RUB",
+                        text=(
+                            f"Текущий курс {curr_name}: "
+                            f"{current_rate:.2f} RUB"
+                        ),
                         font=("Arial", 14), text_color="green"
                     )
                     info_label.pack(pady=5)
@@ -184,7 +197,11 @@ class MainWindow(ctk.CTk):
                 try:
                     amount = float(entry_amount.get())
                     category = combo_cat.get()
-                    trans_type = "expense" if seg_type.get() == "Расход" else "income"
+                    trans_type = (
+                        "expense"
+                        if seg_type.get() == "Расход"
+                        else "income"
+                    )
                     if manager.add_transaction(amount, category, trans_type):
                         entry_amount.delete(0, 'end')
                         self.show_expense_view()  # Обновляем экран
@@ -253,6 +270,91 @@ class MainWindow(ctk.CTk):
             ctk.CTkLabel(container,
                          text=f"Ошибка инициализации модуля: {e}",
                          text_color="red").pack(pady=20)
+
+            def show_habit_view(self):
+                self.clear_content()
+                container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+                container.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(container, text="Трекер привычек", font=("Arial", 18, "bold")).pack(pady=10)
+
+        tracker = HabitTracker()
+
+        # Панель добавления
+        add_frame = ctk.CTkFrame(container)
+        add_frame.pack(fill="x", padx=20, pady=5)
+        ctk.CTkLabel(add_frame, text="Название:").pack(side="left", padx=5)
+        entry_name = ctk.CTkEntry(add_frame, width=200)
+        entry_name.pack(side="left", padx=5)
+
+        def add_habit():
+            name = entry_name.get().strip()
+            if name:
+                tracker.add_habit(name)
+                entry_name.delete(0, 'end')
+                self.show_habit_view()
+            else:
+                ctk.CTkLabel(container, text="Введите название", text_color="orange").pack(pady=2)
+
+        ctk.CTkButton(add_frame, text="➕ Добавить", command=add_habit).pack(side="left", padx=5)
+
+        # Список привычек
+        list_frame = ctk.CTkScrollableFrame(container, height=200)
+        list_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        if not tracker.data["habits"]:
+            ctk.CTkLabel(list_frame, text="Нет привычек. Добавьте первую!").pack(pady=10)
+        else:
+            for habit in tracker.data["habits"]:
+                habit_frame = ctk.CTkFrame(list_frame)
+                habit_frame.pack(fill="x", pady=2)
+
+                ctk.CTkLabel(habit_frame, text=habit["name"], width=150, anchor="w").pack(side="left", padx=5)
+
+                today = datetime.now().strftime("%Y-%m-%d")
+                already_done = today in habit["history"]
+                btn_mark = ctk.CTkButton(
+                    habit_frame,
+                    text="✅" if not already_done else "✔️ Выполнено",
+                    width=100,
+                    state="normal" if not already_done else "disabled",
+                    command=lambda hid=habit["id"]: self._mark_habit_and_refresh(hid, tracker)
+                )
+                btn_mark.pack(side="left", padx=5)
+
+                streak = tracker.get_current_streak(habit["id"])
+                ctk.CTkLabel(habit_frame, text=f"🔥 {streak} дн.").pack(side="left", padx=5)
+
+                ctk.CTkButton(
+                    habit_frame,
+                    text="🗑️",
+                    width=30,
+                    fg_color="#e74c3c",
+                    hover_color="#c0392b",
+                    command=lambda hid=habit["id"]: self._delete_habit_and_refresh(hid, tracker)
+                ).pack(side="right", padx=5)
+
+        # График первой привычки
+        if tracker.data["habits"]:
+            try:
+                first_id = tracker.data["habits"][0]["id"]
+                fig = tracker.plot_habit_progress(first_id)
+                canvas = FigureCanvasTkAgg(fig, master=container)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill="both", expand=True, pady=10)
+            except Exception as e:
+                ctk.CTkLabel(container, text=f"График не загружен: {e}", text_color="red").pack()
+
+    def _mark_habit_and_refresh(self, habit_id: int, tracker):
+        try:
+            tracker.mark_habit(habit_id, "done")
+            self.show_habit_view()
+        except ValueError as e:
+            ctk.CTkLabel(self.content_frame, text=str(e), text_color="red").pack(pady=5)
+
+    def _delete_habit_and_refresh(self, habit_id: int, tracker):
+        tracker.delete_habit(habit_id)
+        self.show_habit_view()
 
     def show_placeholder(self, name):
         self.clear_content()

@@ -4,7 +4,7 @@
 import json
 import os
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict
 import matplotlib.pyplot as plt
 
 
@@ -90,7 +90,7 @@ class BudgetManager:
         """Собирает расходы по категориям за текущий месяц с корректным парсингом дат"""
         now = datetime.now()
         current_year, current_month = now.year, now.month
-        expenses = {}
+        expenses: dict[str, float] = {}
 
         for t in self.data["transactions"]:
             if t.get("type") != "expense":
@@ -121,7 +121,7 @@ class BudgetManager:
 
         labels = list(data.keys())
         sizes = list(data.values())
-        wedges, texts, autotexts = ax.pie(
+        wedges, texts, autotexts = ax.pie(  # type: ignore
             sizes, labels=labels, autopct='%1.1f%%', startangle=90,
             textprops={'color': 'white', 'fontsize': 10}
         )

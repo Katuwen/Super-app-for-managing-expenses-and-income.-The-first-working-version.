@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import io
 from datetime import datetime, timedelta
 from typing import Optional
+from matplotlib.dates import date2num
 
 
 def plot_currency_dynamics(currency_code: str = "USD", days: int = 7) -> plt.Figure:
@@ -12,7 +13,7 @@ def plot_currency_dynamics(currency_code: str = "USD", days: int = 7) -> plt.Fig
     values = [75.0 + (i * 0.5) for i in range(days)]
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(dates, values, marker='o', linestyle='-', color='#2b6cb0')
+    ax.plot(date2num(dates), values, marker='o', linestyle='-', color='#2b6cb0')
     ax.set_title(f'Динамика курса {currency_code} (РФ)')
     ax.set_xlabel('Дата')
     ax.set_ylabel('Курс (RUB)')
